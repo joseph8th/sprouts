@@ -28,10 +28,10 @@ class Position(object):
     """
 
     faces = None
-    edges_dict = {}
+    edges_d = {}
 
     def __init__(self, input_str):
-        self.faces = self.get_faces_list(input_str)
+        self.set_faces_list(input_str)
 
 
     def __str__(self):
@@ -42,25 +42,49 @@ class Position(object):
         return self.get_faces_string()
 
 
-    def get_faces_list(self, input_str):
+    def set_faces_list(self, input_str):
         # 'Private' method to parse string argument into list of lists of lists.
         
         faces_l = []
-        # use .strip().split(TOKEN) to strip whitespace before tokenizing into lists
+        # use .strip().split() to strip whitespace then tokenize 
         for face in input_str.strip().split(FACE_TOKEN):
             bound_l = []
             faces_l.append(bound_l)
+
             for bnd in face.strip().split(BND_TOKEN):
                 seed_l = []
                 bound_l.append(seed_l)
                 vtx_l = bnd.strip().split(VTX_TOKEN)
+                next_seed = vtx_l[0]
+
+                self.edges_d = dict([v,0] for v in vtx_l)
+###############
+                print "Edges before vtx loop:", self.edges_d
+
                 for vtx_ix in range(len(vtx_l)):
-                    vtx = vtx_l[vtx_ix].strip()
-#                    seed = Seed(vtx)
-                    if vtx in [s.value for s in bound_l]:
+                    seed = vtx_l[vtx_ix].strip()
+
+                    # increment the directed edges counter dict
+                    if vtx_ix < len(vtx_l)-1:
+                        next_seed = vtx_l[vtx_ix+1].strip()
+                    else:
+                        next_seed = vtx_l[0].strip()
+#############
+                    print seed, "? ", seed_l  #
+                    print seed_l.count(seed)  #
+
+                    self.edges_d[seed] += 1
+                    self.edges_d[next_seed] += 1
+
+                    # add the seed to the seed list (in faces list)
                     seed_l.append(seed)
 
-        return faces_l
+#############
+                    print "Edges in vtx loop:", self.edges_d
+
+
+        # set the faces list
+        self.faces = faces_l
 
 
     def get_faces_string(self):
