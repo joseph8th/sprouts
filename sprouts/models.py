@@ -53,6 +53,9 @@ class Position(object):
             bound_l = []
             faces_l.append(bound_l)
 
+            edges_bound_l = []
+            edges_l.append(edges_bound_l)
+
             for bnd in face.strip().split(BND_TOKEN):
                 seed_l = []
                 bound_l.append(seed_l)
@@ -60,7 +63,7 @@ class Position(object):
                 vtx_l = bnd.strip().split(VTX_TOKEN)
                 next_seed = vtx_l[0]
 
-                edges_bound_d = dict([v,0] for v in vtx_l)
+                edges_seed_d = dict([v,0] for v in vtx_l)
 
                 for vtx_ix in range(len(vtx_l)):
                     seed = vtx_l[vtx_ix].strip()
@@ -73,25 +76,23 @@ class Position(object):
 
                     # ... but not if the seed is alone in its boundary
                     if len(vtx_l) > 1:
-                        edges_bound_d[seed] += 1
-                        edges_bound_d[next_seed] += 1
+                        edges_seed_d[seed] += 1
+                        edges_seed_d[next_seed] += 1
 
                     # add the seed to the seed list (in faces list)
                     seed_l.append(seed)
 
-#############
-                    print "Edges at end of vtx loop:", edges_bound_d
+#############3                    print "Edges at end of vtx loop:", edges_seed_d
 
                 # stash the edges dict for this boundary in edges_l list
-                edges_l.append(edges_bound_d)
+                edges_bound_l.append(edges_seed_d)
 
         # set the self.faces and self.edges lists
         self.faces = faces_l
         self.edges = edges_l
 
 ##############3        
-        print "Edges final:", self.edges
-        print "Faces final:", self.faces
+        print "Edges final:", self.edges, "\nFaces final:", self.faces
 
 
     def get_faces_string(self):
@@ -117,26 +118,42 @@ class Position(object):
 class GameTree(object):
     """
     Class to encapsulate the game's directed acyclic graph (DAG) 'tree'.
+    Expects a SproutsGame instance as initial parameter.
     """
 
-    def __init__(self, init_position):
-        self.root = init_position
-        self.tree = self.gen_tree()
+    def __init__(self, game):
+        self.game = game
+        self.root = self.game.init_position
+        self.tree = self.gen_tree(self.root)
 
 
     def get_current_position(self):
         return self.tree[-1][-1]
                     
 
-    def gen_tree(self):
-        tree = [[self.root],]
+    def gen_tree(self, parent_pos):
+        tree = {'pos': parent_pos, 'wins': 0, 'kids': None}
 
-        for face in tree[-1][-1].faces:
-            for start_bnd in face:
-                for end_bnd in face:
-                    for start_vtx in start_bnd:
-                        for end_vtx in end_bnd:
-                            print "New edge: (%s,%s)" % (start_vtx, end_vtx)
+        for face_ix in range(len(parent_pos.faces)):
+            face = parent_pos.faces[face_ix]
+
+            for start_bnd_ix in range(len(face)):
+                start_bnd = face[start_bnd_ix]
+                for end_bnd_ix in range(len(face)):
+                    end_bnd = face[end_bnd_ix]
+
+                    for start_vtx_ix in range(len( start_bnd )):
+                        for end_vtx_ix in range(len( end_bnd )):
+                            new_position = self.game.move(
+                                parent_pos, face_ix, 
+                                {'start': (start_bnd_ix, start_vtx_ix), 
+                                 'end': (end_bnd_ix, end_vtx_ix)}       
+                            )
+
+                            # recurse into child trees
+                            if new_position:
+                                new_tree = self.gen_tree(new_position)
+                                tree['kids'] = new_tree
 
         return tree
 
@@ -149,7 +166,19 @@ class SproutsGame(object):
     """
 
     def __init__(self, init_position):
-        self.game_tree = GameTree(init_position)
+        self.init_position = init_position
+
+
+    def move(self, position, face_ix, join):        
+        face = position.faces[face_ix]
+        start_bnd = face[ join['start'][0] ]
+        start_vtx = start_bnd[ join['start'][1] ]
+        end_bnd = face[ join['end'][0] ]
+        end_vtx = end_bnd[ join['end'][1] ]
+
+        new_position = None
+
+        return new_position
 
 
     def play(self, args):
