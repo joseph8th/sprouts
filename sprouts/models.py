@@ -53,7 +53,7 @@ class Position(object):
                 vtx_l = [v.strip() for v in vtx_l]
                 next_seed = vtx_l[0]
 
-                degrees_seed_d = dict([v,0] for int(v) in vtx_l)
+                degrees_seed_d = dict([int(v),0] for v in vtx_l)
 
                 for vtx_ix in range(len(vtx_l)):
                     seed = int( vtx_l[vtx_ix] )
