@@ -24,14 +24,15 @@ class Position(object):
 
 
     # 'Private' method to parse string argument into list of lists of lists.
-    def _set_faces_from_string(self, faces_in, string_input):
+    def _set_faces_list(self, faces_in, string_input):
         faces_l = []
         degrees_l = []
 
         # if string_input => .strip().split() to strip whitespace & tokenize 
-        faces_in_l = faces_in.strip().split(FACE_TOKEN) if string_input else faces_in[:]
+        faces_in_l = faces_in.strip().split(FACE_TOKEN) \
+                     if string_input else faces_in[:]
 
-        # loop the list of faces (all looped by index for string_input option)
+        # loop the list of faces (looped by index for string_input option)
         for face_ix in range(len(faces_in_l)):
             face = faces_in_l[face_ix]              # handle, for convenience
 
@@ -42,7 +43,9 @@ class Position(object):
             degrees_l.append(degrees_bound_l)
 
             # loop the boundaries in this face (again, by index)
-            bound_in_l = face.strip().split(BND_TOKEN) if string_input else faces_in[face_ix][:]
+            bound_in_l = face.strip().split(BND_TOKEN) \
+                         if string_input else faces_in[face_ix][:]
+
             for bnd_ix in range(len(bound_in_l)):
                 bnd = bound_in_l[bnd_ix]
 
@@ -81,13 +84,13 @@ class Position(object):
         self.faces = faces_l
         self.degrees = degrees_l
 
-##############3        
-        print "Degrees final:", self.degrees, "\nFaces final:", self.faces
+##############3        print "Degrees final:", self.degrees, "\nFaces final:", self.faces
 
 
     def get_faces_string(self):
         """
-        Method to get position as formatted string, assuming self.faces is set on __init__.
+        Method to get position as formatted string, 
+        assuming self.faces is set on __init__.
         """
 
         faces_s = ''
@@ -102,6 +105,21 @@ class Position(object):
             faces_s += FACE_TOKEN if face_ix < len(self.faces)-1 else ''
 
         return faces_s
+
+
+    def get_seed_list(self):
+        """
+        Method returns a list of all unique seed labels.
+        """
+
+        seed_l = []
+        for face in self.degrees:
+            for bnd in face:
+                for seed in bnd.keys():
+                    if not seed in seed_l:
+                        seed_l.append(seed)
+
+        return seed_l
 
 
 
@@ -122,6 +140,8 @@ class GameTree(object):
         """
         Method to recursively generate the game tree.
         """
+##########3
+        print parent_pos.faces
 
         tree = {'pos': parent_pos, 'wins': 0, 'kids': None}
 
@@ -135,7 +155,7 @@ class GameTree(object):
                 for end_bnd_ix in range(len(face)):
                     end_bnd = face[end_bnd_ix]
 
-                    # loop all poss start/end verts in this start/end bndry tuple
+                    # loop all poss start/end verts in this start/end bnds
                     for start_vtx_ix in range(len( start_bnd )):
                         for end_vtx_ix in range(len( end_bnd )):
                             new_position = self.game.move(
@@ -164,7 +184,7 @@ class SproutsGame(object):
         self.init_position = init_position
 
 
-    def move(self, pos, face_ix, start_d, end_d): 
+    def move(self, pos, face_ix, bnd_incl_l, start_d, end_d): 
         """
         Method to perform only legal move (join) with 2 given vertices.
         """
@@ -175,34 +195,81 @@ class SproutsGame(object):
         start_vtx = start_bnd[ start_d['vtx'] ]
         end_bnd = work_face[ end_d['bnd'] ]
         end_vtx = end_bnd[ end_d['vtx'] ]
+        start_degs = pos.degrees[face_ix][ start_d['bnd'] ]
+        end_degs = pos.degrees[face_ix][ end_d['bnd'] ]
 
         # new stuff
         new_pos_l = []
-        new_face_l = []
-        new_vtx = max( pos.degrees.keys() ) + 1
+        new_vtx = max( pos.get_seed_list() ) + 1
 
         # for joins in the same boundary => creating a new face
         if start_bnd == end_bnd:
+            new_bnd1 = []
+            new_bnd2 = []
 
             # for joining a vertex to itself
             if start_vtx == end_vtx:
-                if pos.degrees[start_vtx] < 2:
-                    new_face_l.extend( [start_vtx, new_vtx] )
+                if start_degs[start_vtx] < 2:
+                    new_bnd1.extend( [start_vtx, new_vtx] )
+
+                    new_bnd2.extend(
+                        [ v for v in start_bnd[:start_d['vtx']] ] )
+                    new_bnd2.append(new_vtx)
+                    new_bnd2.extend(
+                        [ v for v in start_bnd[start_d['vtx']:] ] )
                     
             # for joining diff verts in same boundary
             else:
-                if pos.degrees[start_vtx] < 3 and pos.degrees[end_vtx] < 3:
-                    new_face_l.extend( [ v for v in start_bnd[:start_d['vtx']] ] )
-                    new_face_l.extend( [new_vtx, end_vtx] )
+                if start_degs[start_vtx] < 3 and start_degs[end_vtx] < 3:
+                    new_bnd1.extend( 
+                        [ v for v in start_bnd[:start_d['vtx']] ] )
+                    new_bnd1.extend( [new_vtx, end_vtx] )
+
+                    new_bnd2.extend(
+                        [v for v in start_bnd[start_d['vtx']:end_d['vtx']]] )
+                    new_bnd2.append(new_vtx)
+
+            # which boundaries included in which face?
+            orig_face = []
+            new_face = []
+            orig_face.append(new_bnd1)
+            orig_face.extend([ work_face[bnd_ix] 
+                               for bnd_ix in range(len(work_face))
+                               if bnd_ix != start_d['bnd']
+                               and bnd_ix not in bnd_incl_l ])
+            
+            new_face.append(new_bnd2)
+            new_face.extend([ work_face[bnd_ix]
+                              for bnd_ix in bnd_incl_l
+                              if bnd_ix != start_d['bnd'] ])
+
+            new_faces_l = []
+            # 1st grab all the other faces in the pos.faces list
+            if len(pos.faces) > 1:
+                new_faces_l.extend([ pos.faces[ix] 
+                                     for ix in range(len(faces)) 
+                                     if ix != face_ix ])
+            # then tack on the modified orig and new faces
+            new_faces_l.extend([orig_face, new_face])
+
 
         # otherwise joins in diff boundaries => joining boundaries
-################33        else:
-##################3            
+        else:
+            new_bnd = []
+            if start_degs[start_vtx] < 3 and end_degs[end_vtx] < 3:
+                new_bnd.extend(
+                    [ v for v in start_bnd[:start_d['vtx']] ] )
+                new_bnd.append(new_vtx)
+                new_bnd.extend(
+                    [ v for v in end_bnd[end_d['vtx']:] ] )
+                new_bnd.extend(
+                    [ v for v in end_bnd[:end_d['vtx']] ] )
+                new_bnd.append(new_vtx)
+                new_bnd.extend(
+                    [ v for v ind start_bnd[start_d['vtx']:] ] )
 
-                    
-        # for joins in different boundaries
 
-        return new_pos
+        return new_position
 
 
     def play(self, args):
