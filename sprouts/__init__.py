@@ -1,27 +1,27 @@
 import sys
-from models import Position, SproutsGame, GameTree
+from models import Position, GameTree
+from game import SproutsGame
+from views import Report
 
 
 def main():
     """
-    'Main' function to run sprouts game analysis.
+    'Main' function.
     """
 
     # parse the command line
     if not len(sys.argv) > 1:
-        exit("Sprouts position expected.")
-
+        sys.exit("Sprouts position expected.")
     input_str = str(sys.argv[1])  
 
     # instantiate the initial position model
     init_pos = Position(input_str)
-    print "Initial position: ", init_pos
 
     # instantiate a sprouts game object
     game = SproutsGame(Position)
 
-    # output the initial game state
-
-#    print game.get_state_str(init=True)
-
+    # instantiate a GameTree object
     gametree = GameTree(game)
+
+    # output a Report object
+    Report(gametree)
